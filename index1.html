@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pooja Committee Management System</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .hidden { display: none; }
+        .puja-card, .stat-card { transition: all 0.3s; cursor: pointer; }
+        .puja-card:hover, .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .fade-in { animation: fadeIn 0.5s; }
+        .hero-section { 
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), 
+                        url('https://images.unsplash.com/photo-1581578731540-c6b0fb7bd4f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80');
+            background-size: cover; 
+            background-position: center; 
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .admin-card { border-left: 4px solid #3b82f6; }
+        .quick-action { transition: all 0.3s; }
+        .quick-action:hover { transform: scale(1.05); }
+        
+        .hindlish { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .hindi { font-family: 'Nirmala UI', 'Segoe UI', sans-serif; }
+        
+        .loading { opacity: 0.6; pointer-events: none; }
+    </style>
+</head>
+<body class="hindlish bg-gray-100 min-h-screen">
+    <!-- Firebase Configuration -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCz-u8S9RSGng_xIDj78WAxEkcb5DsbdSE",
+            authDomain: "dhum-agar-pujaa.firebaseapp.com",
+            projectId: "dhum-agar-pujaa",
+            storageBucket: "dhum-agar-pujaa.firebasestorage.app",
+            messagingSenderId: "1096590323414",
+            appId: "1:1096590323414:web:f2ae78886085297204a377"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+    </script>
+
+    <!-- Public View Section -->
+    <section id="public-section" class="min-h-screen">
+        <!-- Hero Section -->
+        <div class="hero-section text-white py-20 px-4 text-center">
+            <div class="max-w-4xl mx-auto">
+                <i class="fas fa-om text-6xl mb-6 text-yellow-300"></i>
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 hindi">श्री पूजा समिति</h1>
+                <p class="text-xl mb-8">Donation & Expense Management System</p>
+                <p class="text-lg mb-8 max-w-2xl mx-auto">Transparent financial management for our community's religious events and activities</p>
+            </div>
+        </div>
+
+        <!-- Public Dashboard -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 text-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600 inline-block mb-3">
+                        <i class="fas fa-rupee-sign text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-gray-600">Total Collected / कुल संग्रह</p>
+                    <p id="public-total-collected" class="text-3xl font-bold text-gray-900">₹0</p>
+                </div>
+                
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 text-center">
+                    <div class="p-3 rounded-full bg-red-100 text-red-600 inline-block mb-3">
+                        <i class="fas fa-money-bill-wave text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-gray-600">Total Spent / कुल व्यय</p>
+                    <p id="public-total-spent" class="text-3xl font-bold text-gray-900">₹0</p>
+                </div>
+                
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 text-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600 inline-block mb-3">
+                        <i class="fas fa-balance-scale text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-gray-600">Current Balance / वर्तमान शेष</p>
+                    <p id="public-current-balance" class="text-3xl font-bold text-gray-900">₹0</p>
+                </div>
+            </div>
+            
+            <!-- Puja-wise Summary -->
+            <div class="bg-white rounded-xl shadow-lg mb-12 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
+                    <h3 class="text-xl font-semibold text-white hindi">पूजा-वार सारांश / Puja-wise Summary</h3>
+                    <p class="text-blue-100">Click on any puja to view details / विवरण देखने के लिए पूजा पर क्लिक करें</p>
+                </div>
+                <div class="p-6">
+                    <div id="public-puja-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="text-center py-8">
+                            <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                            <p class="text-gray-500 mt-2">Loading pujas...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Donor Contributions -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-green-500 to-green-600 p-6">
+                    <h3 class="text-xl font-semibold text-white hindi">दानदाता योगदान / Donor Contributions</h3>
+                </div>
+                <div class="p-6">
+                    <div id="public-donor-list" class="space-y-4">
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin text-xl text-gray-400"></i>
+                            <p class="text-gray-500 mt-2">Loading donors...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer with Admin Login Button -->
+        <footer class="bg-gray-800 text-white py-8 mt-12 relative">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <p class="mb-4">श्री पूजा समिति - पारदर्शी वित्तीय प्रबंधन</p>
+                <p class="text-gray-400">Pooja Committee - Transparent Financial Management</p>
+                
+                <div class="mt-6">
+                    <button id="admin-login-btn-footer" class="bg-yellow-500 text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-400 transition">
+                        <i class="fas fa-lock mr-2"></i>Admin Login / प्रबंधक लॉगिन
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </section>
+
+    <!-- Puja Details Section -->
+    <section id="puja-details-section" class="hidden min-h-screen bg-gray-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <button id="back-to-public" class="flex items-center text-blue-600 hover:text-blue-800 mb-6">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Public View / सार्वजनिक दृश्य पर वापस
+            </button>
+            
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 p-6 text-white">
+                    <h1 id="puja-name-header" class="text-2xl font-bold hindi">पूजा नाम</h1>
+                    <p id="puja-date-header" class="text-purple-100">तारीख</p>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Puja Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div class="bg-green-50 p-4 rounded-lg text-center border-l-4 border-green-500">
+                            <p class="text-sm font-medium text-green-800">Total Donations / कुल दान</p>
+                            <p id="puja-total-donations" class="text-2xl font-bold text-green-600">₹0</p>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg text-center border-l-4 border-red-500">
+                            <p class="text-sm font-medium text-red-800">Total Expenses / कुल व्यय</p>
+                            <p id="puja-total-expenses" class="text-2xl font-bold text-red-600">₹0</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg text-center border-l-4 border-blue-500">
+                            <p class="text-sm font-medium text-blue-800">Balance / शेष राशि</p>
+                            <p id="puja-balance" class="text-2xl font-bold text-blue-600">₹0</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Donations List -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 hindi">दान रिकॉर्ड / Donation Records</h3>
+                        <div id="puja-donations-list" class="space-y-3">
+                            <div class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin text-lg text-gray-400"></i>
+                                <p class="text-gray-500 mt-2">Loading donations...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expenses List -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2 hindi">व्यय रिकॉर्ड / Expense Records</h3>
+                        <div id="puja-expenses-list" class="space-y-3">
+                            <div class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin text-lg text-gray-400"></i>
+                                <p class="text-gray-500 mt-2">Loading expenses...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login Section -->
+    <section id="login-section" class="hidden min-h-screen flex items-center justify-center p-4 bg-gray-50">
+        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <i class="fas fa-om text-5xl text-blue-500 mb-4"></i>
+                <h1 class="text-2xl font-bold text-gray-800 hindi">प्रबंधक लॉगिन</h1>
+                <p class="text-gray-600">Admin Login</p>
+            </div>
+            
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email / ईमेल</label>
+                    <input type="email" id="email" name="email" required 
+                           class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                           placeholder="admin@example.com">
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password / पासवर्ड</label>
+                    <input type="password" id="password" name="password" required 
+                           class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                           placeholder="Enter your password">
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                    Login / लॉगिन
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <button id="back-to-public-from-login" class="text-blue-600 hover:underline">
+                    Back to Public View / सार्वजनिक दृश्य पर वापस
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Admin Dashboard Section -->
+    <section id="admin-section" class="hidden min-h-screen bg-gray-50">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-om text-2xl text-blue-500 mr-2"></i>
+                        <h1 class="text-xl font-semibold text-gray-900 hindi">पूजा समिति प्रबंधन</h1>
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Admin</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <span id="user-name" class="text-gray-700">Admin User</span>
+                        <button id="logout-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+                            Logout / लॉगआउट
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Admin Dashboard -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="admin-card stat-card bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-600">
+                            <i class="fas fa-rupee-sign text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Collected</p>
+                            <p id="admin-total-collected" class="text-2xl font-bold text-gray-900">₹0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card stat-card bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-red-100 text-red-600">
+                            <i class="fas fa-money-bill-wave text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Spent</p>
+                            <p id="admin-total-spent" class="text-2xl font-bold text-gray-900">₹0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card stat-card bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                            <i class="fas fa-balance-scale text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Current Balance</p>
+                            <p id="admin-current-balance" class="text-2xl font-bold text-gray-900">₹0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-card stat-card bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                            <i class="fas fa-users text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Donors</p>
+                            <p id="admin-total-donors" class="text-2xl font-bold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6 hindi">त्वरित कार्य / Quick Actions</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button id="quick-add-donation" class="quick-action bg-green-500 text-white p-4 rounded-lg text-center hover:bg-green-600 transition">
+                        <i class="fas fa-donate text-2xl mb-2"></i>
+                        <p class="font-semibold">Add Donation</p>
+                        <p class="text-sm">दान जोड़ें</p>
+                    </button>
+                    
+                    <button id="quick-add-expense" class="quick-action bg-red-500 text-white p-4 rounded-lg text-center hover:bg-red-600 transition">
+                        <i class="fas fa-receipt text-2xl mb-2"></i>
+                        <p class="font-semibold">Add Expense</p>
+                        <p class="text-sm">व्यय जोड़ें</p>
+                    </button>
+                    
+                    <button id="quick-add-donor" class="quick-action bg-blue-500 text-white p-4 rounded-lg text-center hover:bg-blue-600 transition">
+                        <i class="fas fa-user-plus text-2xl mb-2"></i>
+                        <p class="font-semibold">Add Donor</p>
+                        <p class="text-sm">दानदाता जोड़ें</p>
+                    </button>
+                    
+                    <button id="quick-add-puja" class="quick-action bg-purple-500 text-white p-4 rounded-lg text-center hover:bg-purple-600 transition">
+                        <i class="fas fa-calendar-plus text-2xl mb-2"></i>
+                        <p class="font-semibold">Add Puja</p>
+                        <p class="text-sm">पूजा जोड़ें</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Donations / हाल के दान</h3>
+                    <div id="admin-recent-donations" class="space-y-3">
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin text-lg text-gray-400"></i>
+                            <p class="text-gray-500">Loading donations...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Upcoming Pujas / आगामी पूजाएं</h3>
+                    <div id="admin-upcoming-pujas" class="space-y-3">
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin text-lg text-gray-400"></i>
+                            <p class="text-gray-500">Loading pujas...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- Modals for Quick Actions -->
+    <!-- Add Donation Modal -->
+    <div id="add-donation-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b">
+                <h3 class="text-xl font-semibold text-gray-900">Add Donation / दान जोड़ें</h3>
+            </div>
+            <div class="p-6">
+                <form id="quick-donation-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Donor Name / दानदाता का नाम</label>
+                            <input type="text" id="quick-donation-donor" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter donor name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Amount / राशि (₹)</label>
+                            <input type="number" id="quick-donation-amount" step="0.01" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter amount">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Puja Event / पूजा कार्यक्रम</label>
+                            <input type="text" id="quick-donation-puja" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter puja name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Payment Mode / भुगतान का तरीका</label>
+                            <input type="text" id="quick-donation-mode" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Cash, UPI, Bank Transfer">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Date / तारीख</label>
+                            <input type="date" id="quick-donation-date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancel-quick-donation" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition">
+                            Cancel / रद्द करें
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            Save / सहेजें
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="add-expense-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b">
+                <h3 class="text-xl font-semibold text-gray-900">Add Expense / व्यय जोड़ें</h3>
+            </div>
+            <div class="p-6">
+                <form id="quick-expense-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Category / श्रेणी</label>
+                            <input type="text" id="quick-expense-category" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Prasad, Decoration, etc.">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Amount / राशि (₹)</label>
+                            <input type="number" id="quick-expense-amount" step="0.01" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter amount">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Puja Event / पूजा कार्यक्रम</label>
+                            <input type="text" id="quick-expense-puja" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Enter puja name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Paid To / भुगतान किसे</label>
+                            <input type="text" id="quick-expense-paid-to" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Enter recipient name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Date / तारीख</label>
+                            <input type="date" id="quick-expense-date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancel-quick-expense" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition">
+                            Cancel / रद्द करें
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            Save / सहेजें
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Donor Modal -->
+    <div id="add-donor-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b">
+                <h3 class="text-xl font-semibold text-gray-900">Add Donor / दानदाता जोड़ें</h3>
+            </div>
+            <div class="p-6">
+                <form id="quick-donor-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Full Name / पूरा नाम</label>
+                            <input type="text" id="quick-donor-name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter full name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Phone / फोन नंबर</label>
+                            <input type="tel" id="quick-donor-phone" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Enter phone number">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Address / पता</label>
+                            <input type="text" id="quick-donor-address" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Enter address">
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancel-quick-donor" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition">
+                            Cancel / रद्द करें
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            Save / सहेजें
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Puja Modal -->
+    <div id="add-puja-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b">
+                <h3 class="text-xl font-semibold text-gray-900">Add Puja / पूजा जोड़ें</h3>
+            </div>
+            <div class="p-6">
+                <form id="quick-puja-form">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Puja Name / पूजा नाम</label>
+                            <input type="text" id="quick-puja-name" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required placeholder="Enter puja name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Date / तारीख</label>
+                            <input type="date" id="quick-puja-date" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Description / विवरण</label>
+                            <textarea id="quick-puja-description" rows="3" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" placeholder="Enter puja description"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancel-quick-puja" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition">
+                            Cancel / रद्द करें
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            Save / सहेजें
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Integration Script -->
+    <script>
+        let currentUser = null;
+        let unsubscribeCallbacks = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('quick-donation-date').value = today;
+            document.getElementById('quick-expense-date').value = today;
+            document.getElementById('quick-puja-date').value = today;
+            
+            showPublicView();
+            setupEventListeners();
+            setupAuthListener();
+        });
+
+        function setupEventListeners() {
+            // Navigation
+            document.getElementById('admin-login-btn-footer').addEventListener('click', showLogin);
+            document.getElementById('back-to-public').addEventListener('click', showPublicView);
+            document.getElementById('back-to-public-from-login').addEventListener('click', showPublicView);
+            
+            // Authentication
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+            
+            // Quick Actions
+            document.getElementById('quick-add-donation').addEventListener('click', () => showModal('add-donation-modal'));
+            document.getElementById('quick-add-expense').addEventListener('click', () => showModal('add-expense-modal'));
+            document.getElementById('quick-add-donor').addEventListener('click', () => showModal('add-donor-modal'));
+            document.getElementById('quick-add-puja').addEventListener('click', () => showModal('add-puja-modal'));
+            
+            // Modal actions
+            document.getElementById('cancel-quick-donation').addEventListener('click', () => hideModal('add-donation-modal'));
+            document.getElementById('quick-donation-form').addEventListener('submit', handleQuickDonation);
+            
+            document.getElementById('cancel-quick-expense').addEventListener('click', () => hideModal('add-expense-modal'));
+            document.getElementById('quick-expense-form').addEventListener('submit', handleQuickExpense);
+            
+            document.getElementById('cancel-quick-donor').addEventListener('click', () => hideModal('add-donor-modal'));
+            document.getElementById('quick-donor-form').addEventListener('submit', handleQuickDonor);
+            
+            document.getElementById('cancel-quick-puja').addEventListener('click', () => hideModal('add-puja-modal'));
+            document.getElementById('quick-puja-form').addEventListener('submit', handleQuickPuja);
+        }
+
+        function setupAuthListener() {
+            auth.onAuthStateChanged((user) => {
+                currentUser = user;
+                if (user) {
+                    showAdminDashboard();
+                    loadAdminData();
+                } else {
+                    showPublicView();
+                }
+            });
+        }
+
+        function hideAllSections() {
+            document.getElementById('public-section').classList.add('hidden');
+            document.getElementById('puja-details-section').classList.add('hidden');
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('admin-section').classList.add('hidden');
+            
+            unsubscribeCallbacks.forEach(unsubscribe => unsubscribe());
+            unsubscribeCallbacks = [];
+        }
+
+        function showPublicView() {
+            hideAllSections();
+            document.getElementById('public-section').classList.remove('hidden');
+            loadPublicData();
+        }
+
+        function showPujaDetails(pujaName) {
+            hideAllSections();
+            document.getElementById('puja-details-section').classList.remove('hidden');
+            loadPujaDetails(pujaName);
+        }
+
+        function showLogin() {
+            hideAllSections();
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function showAdminDashboard() {
+            hideAllSections();
+            document.getElementById('admin-section').classList.remove('hidden');
+            if (currentUser) {
+                document.getElementById('user-name').textContent = currentUser.email;
+            }
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            document.getElementById(modalId.replace('-modal', '-form')).reset();
+            
+            const today = new Date().toISOString().split('T')[0];
+            const dateFields = document.querySelectorAll(`#${modalId} input[type="date"]`);
+            dateFields.forEach(field => {
+                if (!field.value) field.value = today;
+            });
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+            } catch (error) {
+                alert('Logout failed: ' + error.message);
+            }
+        }
+
+        function loadPublicData() {
+            // Load pujas
+            const pujasUnsubscribe = db.collection('pujas').onSnapshot((snapshot) => {
+                const pujaSummaryContainer = document.getElementById('public-puja-summary');
+                pujaSummaryContainer.innerHTML = '';
+                
+                snapshot.forEach((doc) => {
+                    const puja = { id: doc.id, ...doc.data() };
+                    const pujaCard = createPujaCard(puja);
+                    pujaSummaryContainer.appendChild(pujaCard);
+                });
+                
+                if (snapshot.empty) {
+                    pujaSummaryContainer.innerHTML = '<div class="text-center py-8"><p class="text-gray-500">No pujas found.</p></div>';
+                }
+            });
+            
+            unsubscribeCallbacks.push(pujasUnsubscribe);
+            
+            // Load donors
+            const donorsUnsubscribe = db.collection('donors').onSnapshot((snapshot) => {
+                const donorListContainer = document.getElementById('public-donor-list');
+                donorListContainer.innerHTML = '';
+                
+                snapshot.forEach((doc) => {
+                    const donor = { id: doc.id, ...doc.data() };
+                    const donorItem = createDonorItem(donor);
+                    donorListContainer.appendChild(donorItem);
+                });
+                
+                if (snapshot.empty) {
+                    donorListContainer.innerHTML = '<div class="text-center py-4"><p class="text-gray-500">No donors found.</p></div>';
+                }
+            });
+            
+            unsubscribeCallbacks.push(donorsUnsubscribe);
+            
+            // Load stats
+            updateStats();
+        }
+
+        function loadAdminData() {
+            // Load recent donations
+            const donationsUnsubscribe = db.collection('donations')
+                .orderBy('date', 'desc')
+                .limit(5)
+                .onSnapshot((snapshot) => {
+                    const donationsContainer = document.getElementById('admin-recent-donations');
+                    donationsContainer.innerHTML = '';
+                    
+                    snapshot.forEach((doc) => {
+                        const donation = { id: doc.id, ...doc.data() };
+                        const donationItem = createAdminDonationItem(donation);
+                        donationsContainer.appendChild(donationItem);
+                    });
+                    
+                    if (snapshot.empty) {
+                        donationsContainer.innerHTML = '<div class="text-center py-4"><p class="text-gray-500">No recent donations.</p></div>';
+                    }
+                });
+            
+            unsubscribeCallbacks.push(donationsUnsubscribe);
+            
+            // Load upcoming pujas
+            const today = new Date().toISOString().split('T')[0];
+            const pujasUnsubscribe = db.collection('pujas')
+                .where('date', '>=', today)
+                .orderBy('date', 'asc')
+                .limit(5)
+                .onSnapshot((snapshot) => {
+                    const pujasContainer = document.getElementById('admin-upcoming-pujas');
+                    pujasContainer.innerHTML = '';
+                    
+                    snapshot.forEach((doc) => {
+                        const puja = { id: doc.id, ...doc.data() };
+                        const pujaItem = createAdminPujaItem(puja);
+                        pujasContainer.appendChild(pujaItem);
+                    });
+                    
+                    if (snapshot.empty) {
+                        pujasContainer.innerHTML = '<div class="text-center py-4"><p class="text-gray-500">No upcoming pujas.</p></div>';
+                    }
+                });
+            
+            unsubscribeCallbacks.push(pujasUnsubscribe);
+            
+            // Load stats
+            updateStats();
+        }
+
+        function loadPujaDetails(pujaName) {
+            document.getElementById('puja-name-header').textContent = pujaName;
+            
+            // Set the date if available
+            db.collection('pujas').where('name', '==', pujaName).get().then((snapshot) => {
+                if (!snapshot.empty) {
+                    const puja = snapshot.docs[0].data();
+                    if (puja.date) {
+                        document.getElementById('puja-date-header').textContent = formatDate(puja.date);
+                    }
+                }
+            });
+            
+            // Load donations for this puja
+            const donationsUnsubscribe = db.collection('donations')
+                .where('pujaName', '==', pujaName)
+                .onSnapshot((snapshot) => {
+                    const donationsContainer = document.getElementById('puja-donations-list');
+                    donationsContainer.innerHTML = '';
+                    
+                    let totalDonations = 0;
+                    snapshot.forEach((doc) => {
+                        const donation = { id: doc.id, ...doc.data() };
+                        const donationItem = createPujaDonationItem(donation);
+                        donationsContainer.appendChild(donationItem);
+                        totalDonations += parseFloat(donation.amount || 0);
+                    });
+                    
+                    document.getElementById('puja-total-donations').textContent = '₹' + totalDonations.toLocaleString('en-IN');
+                    
+                    if (snapshot.empty) {
+                        donationsContainer.innerHTML = '<div class="text-center py-4"><p class="text-gray-500">No donations for this puja.</p></div>';
+                    }
+                });
+            
+            unsubscribeCallbacks.push(donationsUnsubscribe);
+            
+            // Load expenses for this puja
+            const expensesUnsubscribe = db.collection('expenses')
+                .where('pujaName', '==', pujaName)
+                .onSnapshot((snapshot) => {
+                    const expensesContainer = document.getElementById('puja-expenses-list');
+                    expensesContainer.innerHTML = '';
+                    
+                    let totalExpenses = 0;
+                    snapshot.forEach((doc) => {
+                        const expense = { id: doc.id, ...doc.data() };
+                        const expenseItem = createPujaExpenseItem(expense);
+                        expensesContainer.appendChild(expenseItem);
+                        totalExpenses += parseFloat(expense.amount || 0);
+                    });
+                    
+                    document.getElementById('puja-total-expenses').textContent = '₹' + totalExpenses.toLocaleString('en-IN');
+                    
+                    const totalDonations = parseFloat(document.getElementById('puja-total-donations').textContent.replace('₹', '').replace(/,/g, '') || 0);
+                    const balance = totalDonations - totalExpenses;
+                    document.getElementById('puja-balance').textContent = '₹' + balance.toLocaleString('en-IN');
+                    
+                    if (snapshot.empty) {
+                        expensesContainer.innerHTML = '<div class="text-center py-4"><p class="text-gray-500">No expenses for this puja.</p></div>';
+                    }
+                });
+            
+            unsubscribeCallbacks.push(expensesUnsubscribe);
+        }
+
+        async function updateStats() {
+            try {
+                // Get donations total
+                const donationsSnapshot = await db.collection('donations').get();
+                let totalDonations = 0;
+                donationsSnapshot.forEach((doc) => {
+                    const donation = doc.data();
+                    totalDonations += parseFloat(donation.amount || 0);
+                });
+                
+                // Get expenses total
+                const expensesSnapshot = await db.collection('expenses').get();
+                let totalExpenses = 0;
+                expensesSnapshot.forEach((doc) => {
+                    const expense = doc.data();
+                    totalExpenses += parseFloat(expense.amount || 0);
+                });
+                
+                const balance = totalDonations - totalExpenses;
+                
+                // Get donors count
+                const donorsSnapshot = await db.collection('donors').get();
+                const totalDonors = donorsSnapshot.size;
+                
+                // Update public stats
+                document.getElementById('public-total-collected').textContent = '₹' + totalDonations.toLocaleString('en-IN');
+                document.getElementById('public-total-spent').textContent = '₹' + totalExpenses.toLocaleString('en-IN');
+                document.getElementById('public-current-balance').textContent = '₹' + balance.toLocaleString('en-IN');
+                
+                // Update admin stats
+                document.getElementById('admin-total-collected').textContent = '₹' + totalDonations.toLocaleString('en-IN');
+                document.getElementById('admin-total-spent').textContent = '₹' + totalExpenses.toLocaleString('en-IN');
+                document.getElementById('admin-current-balance').textContent = '₹' + balance.toLocaleString('en-IN');
+                document.getElementById('admin-total-donors').textContent = totalDonors;
+                
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        function createPujaCard(puja) {
+            const card = document.createElement('div');
+            card.className = 'puja-card bg-white rounded-lg shadow-md p-4 cursor-pointer fade-in';
+            card.addEventListener('click', () => showPujaDetails(puja.name));
+            
+            card.innerHTML = `
+                <div class="flex items-center mb-3">
+                    <div class="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <h4 class="text-lg font-semibold text-gray-900 hindi">${puja.name}</h4>
+                </div>
+                <p class="text-gray-600 mb-2"><i class="fas fa-calendar-day mr-2"></i>${formatDate(puja.date)}</p>
+                <p class="text-gray-500 text-sm">Click to view details / विवरण देखने के लिए क्लिक करें</p>
+            `;
+            
+            return card;
+        }
+
+        function createDonorItem(donor) {
+            const item = document.createElement('div');
+            item.className = 'bg-gray-50 rounded-lg p-4 fade-in';
+            
+            item.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-medium text-gray-900">${donor.name}</h4>
+                        ${donor.phone ? `<p class="text-gray-600 text-sm"><i class="fas fa-phone mr-1"></i>${donor.phone}</p>` : ''}
+                        ${donor.address ? `<p class="text-gray-600 text-sm"><i class="fas fa-map-marker-alt mr-1"></i>${donor.address}</p>` : ''}
+                    </div>
+                    <div class="text-right">
+                        <p class="text-green-600 font-semibold"><i class="fas fa-rupee-sign mr-1"></i>${(donor.totalDonated || 0).toLocaleString('en-IN')}</p>
+                        <p class="text-gray-500 text-sm">Total Donated</p>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createAdminDonationItem(donation) {
+            const item = document.createElement('div');
+            item.className = 'border-b border-gray-200 pb-3 last:border-0 fade-in';
+            
+            item.innerHTML = `
+                <div class="flex justify-between">
+                    <div>
+                        <p class="font-medium">${donation.donorName}</p>
+                        <p class="text-gray-600 text-sm">${donation.pujaName} • ${formatDate(donation.date)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-green-600 font-semibold">₹${parseFloat(donation.amount || 0).toLocaleString('en-IN')}</p>
+                        <p class="text-gray-500 text-sm">${donation.paymentMode || 'Cash'}</p>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createAdminPujaItem(puja) {
+            const item = document.createElement('div');
+            item.className = 'border-b border-gray-200 pb-3 last:border-0 fade-in';
+            
+            item.innerHTML = `
+                <div class="flex justify-between">
+                    <div>
+                        <p class="font-medium">${puja.name}</p>
+                        <p class="text-gray-600 text-sm">${formatDate(puja.date)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-blue-600"><i class="fas fa-calendar-alt"></i></p>
+                        <p class="text-gray-500 text-sm">Upcoming</p>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createPujaDonationItem(donation) {
+            const item = document.createElement('div');
+            item.className = 'border-b border-gray-200 pb-3 last:border-0 fade-in';
+            
+            item.innerHTML = `
+                <div class="flex justify-between">
+                    <div>
+                        <p class="font-medium">${donation.donorName}</p>
+                        <p class="text-gray-600 text-sm">${formatDate(donation.date)} • ${donation.paymentMode || 'Cash'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-green-600 font-semibold">₹${parseFloat(donation.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createPujaExpenseItem(expense) {
+            const item = document.createElement('div');
+            item.className = 'border-b border-gray-200 pb-3 last:border-0 fade-in';
+            
+            item.innerHTML = `
+                <div class="flex justify-between">
+                    <div>
+                        <p class="font-medium">${expense.category}</p>
+                        <p class="text-gray-600 text-sm">${formatDate(expense.date)} • Paid to: ${expense.paidTo || 'N/A'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-red-600 font-semibold">₹${parseFloat(expense.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+
+        async function handleQuickDonation(e) {
+            e.preventDefault();
+            
+            const donorName = document.getElementById('quick-donation-donor').value;
+            const amount = parseFloat(document.getElementById('quick-donation-amount').value);
+            const pujaName = document.getElementById('quick-donation-puja').value;
+            const paymentMode = document.getElementById('quick-donation-mode').value || 'Cash';
+            const date = document.getElementById('quick-donation-date').value;
+            
+            try {
+                // Add donation
+                await db.collection('donations').add({
+                    donorName,
+                    amount,
+                    pujaName,
+                    paymentMode,
+                    date,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Update donor's total donated amount
+                const donorQuery = await db.collection('donors').where('name', '==', donorName).get();
+                if (!donorQuery.empty) {
+                    const donorDoc = donorQuery.docs[0];
+                    const currentTotal = donorDoc.data().totalDonated || 0;
+                    await db.collection('donors').doc(donorDoc.id).update({
+                        totalDonated: currentTotal + amount
+                    });
+                } else {
+                    // Create new donor if not exists
+                    await db.collection('donors').add({
+                        name: donorName,
+                        totalDonated: amount,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                hideModal('add-donation-modal');
+                alert('Donation added successfully!');
+                updateStats();
+            } catch (error) {
+                alert('Error adding donation: ' + error.message);
+            }
+        }
+
+        async function handleQuickExpense(e) {
+            e.preventDefault();
+            
+            const category = document.getElementById('quick-expense-category').value;
+            const amount = parseFloat(document.getElementById('quick-expense-amount').value);
+            const pujaName = document.getElementById('quick-expense-puja').value || 'General';
+            const paidTo = document.getElementById('quick-expense-paid-to').value;
+            const date = document.getElementById('quick-expense-date').value;
+            
+            try {
+                await db.collection('expenses').add({
+                    category,
+                    amount,
+                    pujaName,
+                    paidTo,
+                    date,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                hideModal('add-expense-modal');
+                alert('Expense added successfully!');
+                updateStats();
+            } catch (error) {
+                alert('Error adding expense: ' + error.message);
+            }
+        }
+
+        async function handleQuickDonor(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('quick-donor-name').value;
+            const phone = document.getElementById('quick-donor-phone').value;
+            const address = document.getElementById('quick-donor-address').value;
+            
+            try {
+                await db.collection('donors').add({
+                    name,
+                    phone,
+                    address,
+                    totalDonated: 0,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                hideModal('add-donor-modal');
+                alert('Donor added successfully!');
+                updateStats();
+            } catch (error) {
+                alert('Error adding donor: ' + error.message);
+            }
+        }
+
+        async function handleQuickPuja(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('quick-puja-name').value;
+            const date = document.getElementById('quick-puja-date').value;
+            const description = document.getElementById('quick-puja-description').value;
+            
+            try {
+                await db.collection('pujas').add({
+                    name,
+                    date,
+                    description,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                hideModal('add-puja-modal');
+                alert('Puja added successfully!');
+            } catch (error) {
+                alert('Error adding puja: ' + error.message);
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Date not set';
+            
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-IN', options);
+        }
+    </script>
+</body>
+</html>
